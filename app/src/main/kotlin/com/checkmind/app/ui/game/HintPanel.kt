@@ -6,11 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,6 +26,8 @@ import com.checkmind.chess.Move
 
 @Composable
 fun HintPanel(
+    thinking: Boolean,
+    failed: Boolean,
     hints: List<HintRow>,
     onHintClick: (Move) -> Unit,
     modifier: Modifier = Modifier,
@@ -42,22 +43,37 @@ fun HintPanel(
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    text = "Winning moves from your games",
+                    text = "Stockfish suggests",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Tap a move to play it",
+                    text = "Score is for the side to move. Tap a move to play it.",
                     style = MaterialTheme.typography.bodySmall,
                     color = CheckMindColors.OnSurfaceMuted,
                 )
             }
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 264.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                hints.forEachIndexed { index, row ->
+            when {
+                thinking -> Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .testTag("hint_thinking"),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("Thinking…", style = MaterialTheme.typography.bodyMedium)
+                }
+                failed -> Text(
+                    text = "The engine could not start.",
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .testTag("hint_failed"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CheckMindColors.OnSurfaceMuted,
+                )
+                else -> hints.forEachIndexed { index, row ->
                     if (index > 0) HorizontalDivider(color = CheckMindColors.SurfaceRaised)
                     Row(
                         modifier = Modifier
@@ -74,7 +90,7 @@ fun HintPanel(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "${row.wins} ${if (row.wins == 1) "win" else "wins"}",
+                            text = row.eval,
                             style = MaterialTheme.typography.bodyMedium,
                             color = CheckMindColors.Primary,
                         )

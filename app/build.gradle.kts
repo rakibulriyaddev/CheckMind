@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -7,26 +8,31 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// ---- Opening book: games.pgn -> book.bin (generated into assets at build time) ----
-val bookTool = configurations.create("bookTool") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
-val bookOutDir = layout.buildDirectory.dir("generated/book/assets")
+// ---- Stockfish NNUE nets: downloaded once into build/ (not committed, ~78 MB) ----
+// The file name carries the first 12 hex digits of the SHA-256, which the download is checked against.
+val nnueNets = listOf("nn-1c0000000000.nnue", "nn-37f18f62d772.nnue") // must match Stockfish's evaluate.h
+val nnueAssetsDir = layout.buildDirectory.dir("generated/nnue/assets")
 
-val generateBook = tasks.register<JavaExec>("generateBook") {
+val downloadNnue = tasks.register("downloadNnue") {
     group = "build"
-    description = "Compiles every .pgn in book-builder/data into assets/book.bin"
-    val pgn = rootProject.layout.projectDirectory.dir("book-builder/data")
-    val out = bookOutDir.map { it.file("book.bin") }
-    classpath = bookTool
-    mainClass.set("com.checkmind.book.BuildBookKt")
-    jvmArgs("-Xmx3g")
-    inputs.dir(pgn)
-    outputs.file(out)
-    argumentProviders.add(
-        CommandLineArgumentProvider { listOf(pgn.asFile.absolutePath, out.get().asFile.absolutePath) },
-    )
+    description = "Downloads the Stockfish NNUE nets into assets/nnue"
+    val outDir = nnueAssetsDir.map { it.dir("nnue") }
+    outputs.dir(outDir)
+    doLast {
+        val dir = outDir.get().asFile.also { it.mkdirs() }
+        for (name in nnueNets) {
+            val target = File(dir, name)
+            if (target.exists()) continue
+            val tmp = File(dir, "$name.part")
+            uri("https://tests.stockfishchess.org/api/nn/$name").toURL().openStream().use { input ->
+                tmp.outputStream().use { input.copyTo(it) }
+            }
+            val sha = MessageDigest.getInstance("SHA-256").digest(tmp.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            check(sha.startsWith(name.removePrefix("nn-").removeSuffix(".nnue"))) { "Checksum mismatch for $name" }
+            check(tmp.renameTo(target)) { "Could not move $name into place" }
+        }
+    }
 }
 
 android {
@@ -39,6 +45,24 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        ndk {
+            // Phones (arm64) and the emulator (x86_64) only.
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    sourceSets["main"].assets.srcDir(nnueAssetsDir)
+    androidResources {
+        noCompress += "nnue" // loaded by copying to disk; compressing 75 MB again gains nothing
     }
 
     // Release signing: reads keystore.properties at the repo root (git-ignored).
@@ -73,11 +97,14 @@ android {
         compose = true
     }
 
-    sourceSets["main"].assets.srcDir(bookOutDir)
-
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+}
+
+tasks.configureEach {
+    // Anything that reads the assets source dir must run after the nets are downloaded.
+    if ((name.startsWith("merge") && name.endsWith("Assets")) || name.contains("lint", ignoreCase = true)) dependsOn(downloadNnue)
 }
 
 kotlin {
@@ -86,13 +113,7 @@ kotlin {
     }
 }
 
-tasks.configureEach {
-    // Anything that reads the assets source dir must run after the book is generated.
-    if ((name.startsWith("merge") && name.endsWith("Assets")) || name.contains("lint", ignoreCase = true)) dependsOn(generateBook)
-}
-
 dependencies {
-    add("bookTool", project(":book-builder"))
     implementation(project(":chess-core"))
 
     implementation(platform(libs.androidx.compose.bom))
@@ -109,9 +130,4 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(project(":book-builder")) // real-data hint check
-}
-
-tasks.withType<Test>().configureEach {
-    maxHeapSize = "3g" // HintsAgainstRealGamesTest parses the 91 MB PGN
 }

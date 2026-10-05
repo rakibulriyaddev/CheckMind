@@ -5,13 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.checkmind.app.engine.StockfishEngine
 import com.checkmind.app.ui.game.GameScreen
 import com.checkmind.app.ui.game.GameViewModel
 import com.checkmind.app.ui.home.HomeScreen
@@ -38,9 +38,8 @@ class MainActivity : ComponentActivity() {
                         arguments = listOf(navArgument("color") { type = NavType.StringType }),
                     ) { entry ->
                         val color = if (entry.arguments?.getString("color") == "black") Color.BLACK else Color.WHITE
-                        val app = LocalContext.current.applicationContext as CheckMindApp
                         val vm: GameViewModel = viewModel(
-                            factory = GameViewModel.factory(color, app.bookRepository),
+                            factory = GameViewModel.factory(color, StockfishEngine.get(applicationContext)),
                         )
                         GameScreen(viewModel = vm, onBack = { nav.popBackStack() })
                     }

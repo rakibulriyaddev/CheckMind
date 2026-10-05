@@ -5,9 +5,8 @@ import com.checkmind.chess.GameStatus
 import com.checkmind.chess.Move
 import com.checkmind.chess.Piece
 
-data class HintRow(val move: Move, val san: String, val wins: Int) {
-    val label: String get() = "$san · $wins ${if (wins == 1) "win" else "wins"}"
-}
+/** One engine suggestion; [eval] is the score for the side to move, e.g. `+0.35` or `M3`. */
+data class HintRow(val move: Move, val san: String, val eval: String)
 
 data class PendingPromotion(val from: Int, val to: Int, val color: Color)
 
@@ -32,6 +31,8 @@ data class GameUiState(
     val exportPgn: String? = null,
     val hintAvailable: Boolean = false,
     val hintsOpen: Boolean = false,
+    val hintsThinking: Boolean = false,
+    val hintsFailed: Boolean = false,
     val hints: List<HintRow> = emptyList(),
     val pendingPromotion: PendingPromotion? = null,
     val confirm: Confirm? = null,

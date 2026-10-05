@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CheckMind"
 
-include(":chess-core", ":book-builder", ":app")
+include(":chess-core", ":app")

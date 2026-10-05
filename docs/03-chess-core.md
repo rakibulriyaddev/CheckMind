@@ -24,7 +24,7 @@ bits 6..11  to
 bits 12..14 promotion: 0 none, 1 knight, 2 bishop, 3 rook, 4 queen
 ```
 
-Castling is encoded as the **king moving two files** (`e1g1`, `e1c1`, `e8g8`, `e8c8`). En passant is a pawn moving diagonally to the empty en-passant square. No extra flag bits are needed, because `Position.play` recognizes both from context. The 15-bit value is also the book encoding (see 04), so the same move always has the same code.
+Castling is encoded as the **king moving two files** (`e1g1`, `e1c1`, `e8g8`, `e8c8`). En passant is a pawn moving diagonally to the empty en-passant square. No extra flag bits are needed, because `Position.play` recognizes both from context.
 
 ## Position
 
@@ -74,7 +74,7 @@ Rules:
 4. Disambiguation (only when another piece of the same type can legally move to the same square): add the origin **file** if it uniquely identifies; else the origin **rank**; else both.
 5. Suffix `+` if the move gives check, `#` if checkmate (determine by playing the move and checking the resulting position's legal moves).
 
-This is the display format for hints. The book itself stores moves as codes, not SAN.
+This is the display format for moves in the UI and in PGN export.
 
 ## Game status
 

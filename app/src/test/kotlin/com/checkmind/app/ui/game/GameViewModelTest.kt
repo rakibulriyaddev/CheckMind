@@ -1,18 +1,15 @@
 package com.checkmind.app.ui.game
 
-import com.checkmind.app.data.BookSource
+import com.checkmind.app.engine.EngineLine
+import com.checkmind.app.engine.HintEngine
 import com.checkmind.chess.Color
 import com.checkmind.chess.GameStatus
 import com.checkmind.chess.Move
 import com.checkmind.chess.PieceType
 import com.checkmind.chess.Squares
-import com.checkmind.chess.book.BookTable
-import com.checkmind.chess.book.BookTableBuilder
-import com.checkmind.chess.book.OpeningBook
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -28,9 +25,20 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class GameViewModelTest {
 
-    private class FakeBook(initial: OpeningBook?) : BookSource {
-        val flow = MutableStateFlow(initial)
-        override val book: StateFlow<OpeningBook?> get() = flow
+    /** Answers with canned lines, or suspends forever when [gate] is set, to look at the "thinking" state. */
+    private class FakeEngine(
+        var lines: List<EngineLine> = listOf(EngineLine(Move.fromUci("e2e4"), 35, null)),
+        var failure: Throwable? = null,
+        val gate: CompletableDeferred<Unit>? = null,
+    ) : HintEngine {
+        val requests = ArrayList<List<Move>>()
+
+        override suspend fun analyse(moves: List<Move>, lines: Int, moveTimeMs: Int): List<EngineLine> {
+            requests.add(moves)
+            gate?.await()
+            failure?.let { throw it }
+            return this.lines
+        }
     }
 
     @Before
@@ -43,19 +51,6 @@ class GameViewModelTest {
 
     private fun movesOf(vararg uci: String) = uci.map { Move.fromUci(it) }
 
-    /** White won 1.e4 e5 2.Nf3 Nc6; Black won 1.e4 e5 2.Nf3 Nc6 (shares the line for symmetry). */
-    private fun book(): OpeningBook {
-        val w = BookTableBuilder().apply {
-            insert(Color.WHITE, movesOf("e2e4", "e7e5", "g1f3", "b8c6"))
-            insert(Color.WHITE, movesOf("e2e4", "c7c5", "g1f3", "d7d6"))
-        }
-        val b = BookTableBuilder().apply {
-            insert(Color.BLACK, movesOf("e2e4", "e7e5", "g1f3", "b8c6"))
-            insert(Color.BLACK, movesOf("d2d4", "d7d5", "c2c4", "e7e6"))
-        }
-        return OpeningBook(w.build(), b.build(), 2, 2)
-    }
-
     private fun GameViewModel.move(from: String, to: String) {
         onSquareTap(sq(from))
         onSquareTap(sq(to))
@@ -65,18 +60,17 @@ class GameViewModelTest {
 
     @Test
     fun startsWithStandardPosition() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         val s = vm.state.value
         assertEquals(Color.WHITE, s.sideToMove)
         assertEquals("White to move", s.statusText)
         assertEquals(32, s.board.count { it != null })
         assertFalse(s.canUndo)
-        assertFalse(s.hintAvailable)
     }
 
     @Test
     fun tapSelectsAndShowsTargets() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.onSquareTap(sq("e2"))
         val s = vm.state.value
         assertEquals(sq("e2"), s.selected)
@@ -89,14 +83,14 @@ class GameViewModelTest {
 
     @Test
     fun cannotSelectOpponentPiece() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.onSquareTap(sq("e7"))
         assertNull(vm.state.value.selected)
     }
 
     @Test
     fun tapMovesAndSwitchesTurn() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("e2", "e4")
         val s = vm.state.value
         assertEquals(Color.BLACK, s.sideToMove)
@@ -106,7 +100,7 @@ class GameViewModelTest {
 
     @Test
     fun illegalDropLeavesBoardUnchanged() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         val before = vm.state.value.board
         vm.onDragStart(sq("e2"))
         vm.onDrop(sq("e2"), sq("e5"))
@@ -117,7 +111,7 @@ class GameViewModelTest {
 
     @Test
     fun dragAndDropPlaysMove() {
-        val vm = GameViewModel(Color.BLACK, FakeBook(null))
+        val vm = GameViewModel(Color.BLACK, FakeEngine())
         vm.onDragStart(sq("g1"))
         vm.onDrop(sq("g1"), sq("f3"))
         assertEquals(Color.BLACK, vm.state.value.sideToMove)
@@ -136,7 +130,7 @@ class GameViewModelTest {
 
     @Test
     fun promotionFlow() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.playToPromotion()
         vm.move("a7", "b8")
         assertNotNull(vm.state.value.pendingPromotion)
@@ -150,7 +144,7 @@ class GameViewModelTest {
 
     @Test
     fun promotionCancelKeepsPosition() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.playToPromotion()
         vm.move("a7", "b8")
         vm.onPromotionCancelled()
@@ -162,94 +156,98 @@ class GameViewModelTest {
     // ------------------------------------------------------------------ hints
 
     @Test
-    fun whiteHintsFollowTheBook() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(book()))
+    fun hintsAreOfferedOnlyOnMyTurn() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
+        assertTrue(vm.state.value.hintAvailable)
+        vm.move("e2", "e4")
+        assertFalse(vm.state.value.hintAvailable) // black to move
+        vm.onHintsClick()
+        assertFalse(vm.state.value.hintsOpen)
+        vm.move("e7", "e5")
         assertTrue(vm.state.value.hintAvailable)
 
-        vm.onHintsClick()
-        var s = vm.state.value
-        assertTrue(s.hintsOpen)
-        assertEquals(listOf("e4"), s.hints.map { it.san })
-        assertEquals("e4 · 2 wins", s.hints[0].label)
+        assertFalse(GameViewModel(Color.BLACK, FakeEngine()).state.value.hintAvailable)
+    }
 
-        vm.onHintRowClick(s.hints[0].move)
-        s = vm.state.value
+    @Test
+    fun hintsShowEngineLinesWithScoreAndAskForTheCurrentGame() {
+        val engine = FakeEngine(
+            lines = listOf(EngineLine(Move.fromUci("g1f3"), 32, null), EngineLine(Move.fromUci("d2d4"), -5, null)),
+        )
+        val vm = GameViewModel(Color.WHITE, engine)
+        vm.move("e2", "e4")
+        vm.move("e7", "e5")
+        vm.onHintsClick()
+
+        val s = vm.state.value
+        assertTrue(s.hintsOpen)
+        assertFalse(s.hintsThinking)
+        assertEquals(listOf("Nf3", "d4"), s.hints.map { it.san })
+        assertEquals(listOf("+0.32", "-0.05"), s.hints.map { it.eval })
+        assertEquals(listOf(movesOf("e2e4", "e7e5")), engine.requests)
+    }
+
+    @Test
+    fun hintsShowThinkingUntilTheEngineAnswers() {
+        val gate = CompletableDeferred<Unit>()
+        val vm = GameViewModel(Color.WHITE, FakeEngine(gate = gate))
+        vm.onHintsClick()
+        assertTrue(vm.state.value.hintsThinking)
+        assertTrue(vm.state.value.hints.isEmpty())
+        gate.complete(Unit)
+        assertFalse(vm.state.value.hintsThinking)
+        assertEquals(listOf("e4"), vm.state.value.hints.map { it.san })
+    }
+
+    @Test
+    fun hintRowPlaysTheMoveAndClosesThePanel() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
+        vm.onHintsClick()
+        vm.onHintRowClick(vm.state.value.hints[0].move)
+        val s = vm.state.value
         assertFalse(s.hintsOpen)
         assertEquals(Color.BLACK, s.sideToMove)
-        assertFalse("not my turn", s.hintAvailable)
-
-        vm.move("e7", "e5")
-        assertTrue(vm.state.value.hintAvailable)
-        vm.onHintsClick()
-        assertEquals(listOf("Nf3"), vm.state.value.hints.map { it.san })
+        assertEquals(PieceType.PAWN, s.board[sq("e4")]?.type)
     }
 
     @Test
-    fun hintsDisappearWhenLeavingTheBookAndReturnOnUndo() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(book()))
-        vm.move("e2", "e4")
-        vm.move("e7", "e6") // e6 is not in the book
-        assertFalse(vm.state.value.hintAvailable)
-        vm.onUndo()
-        vm.move("e7", "e5")
-        assertTrue(vm.state.value.hintAvailable)
-        vm.onUndo()
-        assertFalse(vm.state.value.hintAvailable) // black to move again
-        vm.onUndo()
-        assertTrue(vm.state.value.hintAvailable) // start position, white to move
-    }
-
-    @Test
-    fun blackUsesOnlyBlackWins() {
-        val vm = GameViewModel(Color.BLACK, FakeBook(book()))
-        assertFalse(vm.state.value.hintAvailable) // white to move
-        vm.move("d2", "d4")
-        assertTrue(vm.state.value.hintAvailable)
+    fun hintsToggleAndCloseOnMoveUndoAndLeftoverAnswer() {
+        val gate = CompletableDeferred<Unit>()
+        val vm = GameViewModel(Color.WHITE, FakeEngine(gate = gate))
         vm.onHintsClick()
-        assertEquals(listOf("d5"), vm.state.value.hints.map { it.san })
-    }
-
-    @Test
-    fun blackHintsFromSharedLine() {
-        val vm = GameViewModel(Color.BLACK, FakeBook(book()))
-        vm.move("e2", "e4")
-        assertTrue(vm.state.value.hintAvailable)
-        vm.onHintsClick()
-        assertEquals(listOf("e5"), vm.state.value.hints.map { it.san })
-    }
-
-    @Test
-    fun hintsOpenClosesOnAnyMoveAndToggles() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(book()))
-        vm.onHintsClick()
-        assertTrue(vm.state.value.hintsOpen)
         vm.onHintsClick()
         assertFalse(vm.state.value.hintsOpen)
+
+        vm.onHintsClick() // asks again, still waiting
+        vm.move("e2", "e4") // the position changed, so the pending answer is dropped
+        gate.complete(Unit)
+        val s = vm.state.value
+        assertFalse(s.hintsOpen)
+        assertTrue(s.hints.isEmpty())
+    }
+
+    @Test
+    fun engineFailureIsShownNotThrown() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine(failure = IllegalStateException("no engine")))
         vm.onHintsClick()
-        vm.move("g1", "f3")
-        assertFalse(vm.state.value.hintsOpen)
+        val s = vm.state.value
+        assertTrue(s.hintsOpen)
+        assertTrue(s.hintsFailed)
+        assertFalse(s.hintsThinking)
     }
 
     @Test
-    fun lateArrivingBookShowsHintButton() {
-        val source = FakeBook(null)
-        val vm = GameViewModel(Color.WHITE, source)
-        assertFalse(vm.state.value.hintAvailable)
-        source.flow.value = book()
-        assertTrue(vm.state.value.hintAvailable)
-    }
-
-    @Test
-    fun emptyBookNeverShowsHints() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(OpeningBook(BookTable.EMPTY, BookTable.EMPTY, 0, 0)))
-        assertFalse(vm.state.value.hintAvailable)
+    fun staleEngineMoveIsNotListed() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine(lines = listOf(EngineLine(Move.fromUci("e2e5"), 0, null))))
+        vm.onHintsClick()
+        assertTrue(vm.state.value.hints.isEmpty())
     }
 
     // ------------------------------------------------------------------ export
 
     @Test
     fun exportShowsPgnOfCurrentGame() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.onExportClick() // nothing to export yet
         assertNull(vm.state.value.exportPgn)
         assertFalse(vm.state.value.hasMoves)
@@ -268,7 +266,7 @@ class GameViewModelTest {
 
     @Test
     fun exportStillWorksAfterResignAndNewGameClosesIt() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("e2", "e4")
         vm.onResignClick()
         vm.onConfirm()
@@ -286,7 +284,7 @@ class GameViewModelTest {
 
     @Test
     fun resignLocksBoardAndDisablesUndo() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("e2", "e4")
         vm.onResignClick()
         assertEquals(Confirm.RESIGN, vm.state.value.confirm)
@@ -308,7 +306,7 @@ class GameViewModelTest {
 
     @Test
     fun newGameResets() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("e2", "e4")
         vm.onNewGameClick()
         assertEquals(Confirm.NEW_GAME, vm.state.value.confirm)
@@ -321,14 +319,14 @@ class GameViewModelTest {
 
     @Test
     fun newGameAtStartNeedsNoConfirmation() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.onNewGameClick()
         assertNull(vm.state.value.confirm)
     }
 
     @Test
     fun foolsMateShowsGameOver() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("f2", "f3")
         vm.move("e7", "e5")
         vm.move("g2", "g4")
@@ -348,14 +346,13 @@ class GameViewModelTest {
     }
 
     @Test
-    fun undoClearsSelectionAndHints() {
-        val vm = GameViewModel(Color.WHITE, FakeBook(book()))
+    fun undoClearsSelection() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine())
         vm.move("e2", "e4")
         vm.move("e7", "e5")
-        vm.onHintsClick()
-        assertTrue(vm.state.value.hintsOpen)
+        vm.onSquareTap(sq("g1"))
+        assertNotNull(vm.state.value.selected)
         vm.onUndo()
-        assertFalse(vm.state.value.hintsOpen)
         assertNull(vm.state.value.selected)
     }
 }

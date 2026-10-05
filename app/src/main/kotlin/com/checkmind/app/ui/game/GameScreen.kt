@@ -87,7 +87,7 @@ fun GameScreen(
     BackHandler(enabled = gameInProgress) { confirmLeave = true }
 
     val hintsBringIntoView = remember { BringIntoViewRequester() }
-    LaunchedEffect(state.hintsOpen) {
+    LaunchedEffect(state.hintsOpen, state.hintsThinking) {
         if (state.hintsOpen) hintsBringIntoView.bringIntoView()
     }
 
@@ -157,8 +157,10 @@ fun GameScreen(
                 ActionButton("New game", enabled = true, tag = "btn_new_game", onClick = viewModel::onNewGameClick)
             }
 
-            if (state.hintsOpen && state.hints.isNotEmpty()) {
+            if (state.hintsOpen) {
                 HintPanel(
+                    thinking = state.hintsThinking,
+                    failed = state.hintsFailed,
                     hints = state.hints,
                     onHintClick = viewModel::onHintRowClick,
                     modifier = Modifier.bringIntoViewRequester(hintsBringIntoView),

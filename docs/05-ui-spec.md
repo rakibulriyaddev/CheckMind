@@ -37,12 +37,11 @@ Top to bottom:
 | Top app bar | Back arrow, title `Playing as White` / `Playing as Black` |
 | Status line | `White to move`, `Black to move`, or `Check`. At game end: `Checkmate, White wins`, `Stalemate, draw`, `Draw by repetition`, `Draw by fifty-move rule`, `Draw: insufficient material`, `White resigned, Black wins` |
 | Board | Square, full width, 16 dp side margins |
-| Action row | `Undo`, `Hints` (only when available), `Resign`, `New game`. Equal-weight buttons in one row, icon above label |
-| Hint panel | Below the action row, visible only when open (see below) |
+| Action row | `Undo`, `Hints` (only on my turn), `Resign`, `New game`. Equal-weight buttons in one row, icon above label |
 
 The page scrolls vertically if the screen is too short. The board never scrolls and keeps a 1:1 aspect ratio.
 
-Test tags: `board`, `btn_undo`, `btn_hints`, `btn_resign`, `btn_new_game`, `hint_row_<san>`, `status_text`.
+Test tags: `board`, `btn_undo`, `btn_hints`, `btn_resign`, `btn_new_game`, `status_text`.
 
 ## Board rendering (`BoardView`)
 
@@ -88,13 +87,10 @@ One `Canvas`, size = width, height = width. Square size `s = width / 8`.
 
 ## Hints UI
 
-- `Hints` button appears with a short fade/size animation (`AnimatedVisibility`) when `hintAvailable` is true. It disappears when false.
+- `Hints` button is shown when `hintAvailable` is true (game ongoing, my turn).
 - Tap **Hints**: the panel opens below the action row. Tapping again closes it.
-- Panel: surface card, title `Winning moves from your games`, then one row per hint:
-  - Row text: `Nf3 · 7 wins` (SAN, middle dot, count, `win` / `wins`).
-  - Whole row is tappable. Tap plays the move, closes the panel.
-- Show at most about 6 rows without scrolling, then scroll inside the card.
-- The panel closes automatically on any move, undo, new game, or when `hintAvailable` becomes false.
+- Panel: surface card, title `Stockfish suggests`, then `Thinking…` with a spinner, then one row per move: SAN on the left, score on the right (`+0.32`, `M3`). Whole row is tappable and plays the move. Test tags: `hint_panel`, `hint_thinking`, `hint_failed`, `hint_row_<san>`.
+- The panel closes automatically on any move, undo, resign, new game, or when it is no longer my turn.
 
 ## Dialogs
 

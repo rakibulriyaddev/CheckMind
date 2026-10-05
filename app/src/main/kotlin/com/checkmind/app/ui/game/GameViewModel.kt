@@ -4,16 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.checkmind.app.data.BookSource
+import com.checkmind.app.engine.EngineLine
+import com.checkmind.app.engine.HintEngine
 import com.checkmind.chess.Color
 import com.checkmind.chess.Game
 import com.checkmind.chess.GameStatus
 import com.checkmind.chess.Move
 import com.checkmind.chess.PieceType
 import com.checkmind.chess.Squares
-import com.checkmind.chess.book.BookEdge
-import com.checkmind.chess.book.OpeningBook
 import com.checkmind.chess.toPgn
+import com.checkmind.chess.toSan
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import com.checkmind.chess.toSan
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,13 +26,16 @@ import java.time.format.DateTimeFormatter
 
 class GameViewModel(
     val playerColor: Color,
-    bookSource: BookSource,
+    private val engine: HintEngine,
 ) : ViewModel() {
 
     private var game = Game()
-    private var book: OpeningBook? = bookSource.book.value
     private var selected: Int? = null
     private var hintsOpen = false
+    private var hintsThinking = false
+    private var hintsFailed = false
+    private var hintLines: List<EngineLine> = emptyList()
+    private var hintJob: Job? = null
     private var pending: PendingPromotion? = null
     private var confirm: Confirm? = null
     private var gameOverDialog = false
@@ -38,15 +43,6 @@ class GameViewModel(
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<GameUiState> = _state.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            bookSource.book.collect {
-                book = it
-                refresh()
-            }
-        }
-    }
 
     // ------------------------------------------------------------------ board input
 
@@ -115,7 +111,7 @@ class GameViewModel(
     private fun playMove(move: Move) {
         game.play(move)
         selected = null
-        hintsOpen = false
+        closeHints()
         pending = null
         gameOverDialog = game.status !is GameStatus.Ongoing
         refresh()
@@ -127,15 +123,34 @@ class GameViewModel(
         if (confirm != null || pending != null) return
         if (game.undo()) {
             selected = null
-            hintsOpen = false
+            closeHints()
             gameOverDialog = false
         }
         refresh()
     }
 
     fun onHintsClick() {
-        if (hintEdges() == null) return
-        hintsOpen = !hintsOpen
+        if (!hintAvailable()) return
+        if (hintsOpen) {
+            closeHints()
+        } else {
+            hintsOpen = true
+            hintsThinking = true
+            hintsFailed = false
+            hintLines = emptyList()
+            val moves = game.moves.toList()
+            hintJob = viewModelScope.launch {
+                try {
+                    hintLines = engine.analyse(moves, HINT_LINES, HINT_MOVE_TIME_MS)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    hintsFailed = true
+                }
+                hintsThinking = false
+                refresh()
+            }
+        }
         refresh()
     }
 
@@ -172,7 +187,7 @@ class GameViewModel(
                 if (game.status is GameStatus.Ongoing) {
                     game.resign(playerColor)
                     selected = null
-                    hintsOpen = false
+                    closeHints()
                     gameOverDialog = true
                 }
             }
@@ -206,7 +221,7 @@ class GameViewModel(
     private fun resetGame() {
         game = Game()
         selected = null
-        hintsOpen = false
+        closeHints()
         pending = null
         confirm = null
         gameOverDialog = false
@@ -215,10 +230,16 @@ class GameViewModel(
 
     // ------------------------------------------------------------------ state
 
-    private fun hintEdges(): List<BookEdge>? {
-        if (game.status !is GameStatus.Ongoing) return null
-        if (game.position.sideToMove != playerColor) return null
-        return book?.hints(playerColor, game.position)
+    private fun hintAvailable(): Boolean =
+        game.status is GameStatus.Ongoing && game.position.sideToMove == playerColor
+
+    private fun closeHints() {
+        hintJob?.cancel()
+        hintJob = null
+        hintsOpen = false
+        hintsThinking = false
+        hintsFailed = false
+        hintLines = emptyList()
     }
 
     private fun refresh() {
@@ -228,8 +249,8 @@ class GameViewModel(
     private fun buildState(): GameUiState {
         val pos = game.position
         val status = game.status
-        val edges = hintEdges()
-        if (edges == null) hintsOpen = false
+        val hintsAllowed = hintAvailable()
+        if (!hintsAllowed && hintsOpen) closeHints()
 
         val sel = selected
         val selectedMoves = if (sel != null) pos.legalMovesFrom(sel) else emptyList()
@@ -239,9 +260,8 @@ class GameViewModel(
                 (pos.pieceAt(m.from)?.type == PieceType.PAWN && Squares.file(m.from) != Squares.file(m.to))
         }.map { it.to }.toSet()
 
-        val hintRows = if (hintsOpen && edges != null) {
-            edges.map { HintRow(it.move, pos.toSan(it.move), it.wins) }
-                .sortedWith(compareByDescending<HintRow> { it.wins }.thenBy { it.san })
+        val hintRows = if (hintsOpen) {
+            hintLines.filter { pos.isLegal(it.move) }.map { HintRow(it.move, pos.toSan(it.move), it.evalLabel) }
         } else emptyList()
 
         val last = game.lastMove
@@ -259,8 +279,10 @@ class GameViewModel(
             canUndo = game.moves.isNotEmpty() && status !is GameStatus.Resigned,
             hasMoves = game.moves.isNotEmpty(),
             exportPgn = if (exportOpen) game.toPgn(date = LocalDate.now().format(PGN_DATE)) else null,
-            hintAvailable = edges != null,
+            hintAvailable = hintsAllowed,
             hintsOpen = hintsOpen,
+            hintsThinking = hintsThinking,
+            hintsFailed = hintsFailed,
             hints = hintRows,
             pendingPromotion = pending,
             confirm = confirm,
@@ -270,6 +292,9 @@ class GameViewModel(
     }
 
     companion object {
+        private const val HINT_LINES = 3
+        private const val HINT_MOVE_TIME_MS = 2000
+
         private val PGN_DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
         fun statusText(status: GameStatus, inCheck: Boolean, sideToMove: Color): String = when (status) {
@@ -285,8 +310,8 @@ class GameViewModel(
 
         private fun Color.label(): String = if (this == Color.WHITE) "White" else "Black"
 
-        fun factory(playerColor: Color, bookSource: BookSource) = viewModelFactory {
-            initializer { GameViewModel(playerColor, bookSource) }
+        fun factory(playerColor: Color, engine: HintEngine) = viewModelFactory {
+            initializer { GameViewModel(playerColor, engine) }
         }
     }
 }
