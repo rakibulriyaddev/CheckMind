@@ -20,7 +20,7 @@ This folder is the complete spec. Implementation starts only after these docs ar
 | Topic | Decision |
 |---|---|
 | Opponent | Human on the same device. You move both sides. Board orientation is fixed to your chosen color. |
-| Hints | Stockfish 17.1, full strength, 3 lines, about 2 s. Shown for either side while the game is on. Tapping a row plays the move (see 04). |
+| Hints | Stockfish 19, full strength, 3 lines, about 2 s. Shown for either side while the game is on. Tapping a row plays the move (see 04). |
 | Rules | chess.com standard: castling, en passant, promotion, check/checkmate/stalemate, draws (threefold, 50-move, insufficient material). |
 | Controls | Undo (one ply), New game, Resign. |
 | UI toolkit | Jetpack Compose, Material 3, two screens. |

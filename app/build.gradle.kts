@@ -8,9 +8,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// ---- Stockfish NNUE nets: downloaded once into build/ (not committed, ~78 MB) ----
+// ---- Stockfish NNUE nets: downloaded once into build/ (not committed, ~98 MB) ----
 // The file name carries the first 12 hex digits of the SHA-256, which the download is checked against.
-val nnueNets = listOf("nn-1c0000000000.nnue", "nn-37f18f62d772.nnue") // must match Stockfish's evaluate.h
+val nnueNets = listOf("nn-1a298aa575a0.nnue") // must match EvalFileDefaultName in Stockfish's evaluate.h
 val nnueAssetsDir = layout.buildDirectory.dir("generated/nnue/assets")
 
 val downloadNnue = tasks.register("downloadNnue") {
@@ -20,6 +20,8 @@ val downloadNnue = tasks.register("downloadNnue") {
     outputs.dir(outDir)
     doLast {
         val dir = outDir.get().asFile.also { it.mkdirs() }
+        // Drop nets of an older Stockfish, so they do not end up in the APK.
+        dir.listFiles { f -> f.name.endsWith(".nnue") && f.name !in nnueNets }?.forEach { it.delete() }
         for (name in nnueNets) {
             val target = File(dir, name)
             if (target.exists()) continue

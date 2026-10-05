@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SF ${CMAKE_CURRENT_SOURCE_DIR}/stockfish/src)
-file(GLOB SF_SOURCES ${SF}/*.cpp ${SF}/nnue/*.cpp ${SF}/nnue/features/*.cpp ${SF}/syzygy/*.cpp)
+file(GLOB SF_SOURCES CONFIGURE_DEPENDS ${SF}/*.cpp ${SF}/nnue/*.cpp ${SF}/nnue/features/*.cpp ${SF}/syzygy/*.cpp)
 
 # Stockfish's own main() becomes stockfish_main(), called from the JNI bridge on its own thread.
 set_source_files_properties(${SF}/main.cpp PROPERTIES COMPILE_DEFINITIONS main=stockfish_main)

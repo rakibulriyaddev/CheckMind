@@ -17,7 +17,7 @@ CheckMind/
   docs/                        <- these docs
   chess-core/                  <- Kotlin/JVM library, no Android
   app/                         <- Android application
-    src/main/cpp/              <- Stockfish 17.1 (vendored), CMake, JNI bridge
+    src/main/cpp/              <- Stockfish 19 (vendored), CMake, JNI bridge
 ```
 
 Dependency direction: `app -> chess-core`. `chess-core` depends on nothing.

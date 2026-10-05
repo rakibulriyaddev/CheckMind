@@ -33,7 +33,7 @@ class HintEngineTest {
 
     @Test
     fun ignoresLinesWithoutAFinishedScoreAndMove() {
-        assertNull(parseInfoLine("info string NNUE evaluation using nn-1c0000000000.nnue"))
+        assertNull(parseInfoLine("info string NNUE evaluation using nn-1a298aa575a0.nnue"))
         assertNull(parseInfoLine("info depth 5 score cp 10 lowerbound pv e2e4"))
         assertNull(parseInfoLine("info depth 5 currmove e2e4 currmovenumber 1"))
         assertNull(parseInfoLine("bestmove e2e4 ponder e7e5"))

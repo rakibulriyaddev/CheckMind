@@ -14,7 +14,7 @@ import java.io.File
 import java.util.TreeMap
 
 /**
- * Stockfish 17.1 at full strength. The two NNUE nets ship as assets and are copied to app storage on first
+ * Stockfish 19 at full strength. The NNUE net ships as an asset and are copied to app storage on first
  * use, because the engine reads them from files. One engine lives for the whole process, and only one
  * analysis runs at a time.
  */
@@ -75,7 +75,7 @@ class StockfishEngine private constructor(private val context: Context) : HintEn
 
     private suspend fun ensureReady() {
         if (ready) return
-        val nets = copyNets()
+        val net = installNet()
         StockfishNative.start()
         if (!readerStarted) {
             readerStarted = true
@@ -88,8 +88,7 @@ class StockfishEngine private constructor(private val context: Context) : HintEn
         await("uciok")
         send("setoption name Threads value ${(Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 4)}")
         send("setoption name Hash value 64")
-        send("setoption name EvalFile value ${nets.first}")
-        send("setoption name EvalFileSmall value ${nets.second}")
+        send("setoption name EvalFile value $net")
         send("isready")
         await("readyok")
         ready = true
@@ -111,23 +110,21 @@ class StockfishEngine private constructor(private val context: Context) : HintEn
 
     private fun send(command: String) = StockfishNative.write(command)
 
-    /** Copies the nets from assets to app storage once. Returns the paths of the big and the small net. */
-    private fun copyNets(): Pair<String, String> {
+    /** Copies the net from assets to app storage once and returns its path. Older nets are removed. */
+    private fun installNet(): String {
         val dir = File(context.filesDir, "nnue").also { it.mkdirs() }
         val names = context.assets.list("nnue").orEmpty().filter { it.endsWith(".nnue") }
-        check(names.size == 2) { "NNUE nets missing from assets" }
-        val files = names.map { name ->
-            val target = File(dir, name)
-            val size = context.assets.openFd("nnue/$name").use { it.length }
-            if (!target.exists() || target.length() != size) {
-                val tmp = File(dir, "$name.part")
-                context.assets.open("nnue/$name").use { input -> tmp.outputStream().use { input.copyTo(it) } }
-                check(tmp.renameTo(target)) { "Could not install $name" }
-            }
-            target
+        check(names.size == 1) { "NNUE net missing from assets" }
+        val name = names[0]
+        dir.listFiles { f -> f.name != name }?.forEach { it.delete() }
+        val target = File(dir, name)
+        val size = context.assets.openFd("nnue/$name").use { it.length }
+        if (!target.exists() || target.length() != size) {
+            val tmp = File(dir, "$name.part")
+            context.assets.open("nnue/$name").use { input -> tmp.outputStream().use { input.copyTo(it) } }
+            check(tmp.renameTo(target)) { "Could not install $name" }
         }
-        val bySize = files.sortedByDescending { it.length() }
-        return bySize[0].absolutePath to bySize[1].absolutePath
+        return target.absolutePath
     }
 
     companion object {

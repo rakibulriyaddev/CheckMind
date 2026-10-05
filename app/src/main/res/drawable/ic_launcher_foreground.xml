@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- White king, drawn inside the 66dp safe zone of the 108dp adaptive icon canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- cross -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,26h4v14h-4z M47,30h14v4h-14z" />
+    <!-- body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,40C46,40 41,46 41,53C41,58 44,61 47,63L44.5,71H63.5L61,63C64,61 67,58 67,53C67,46 62,40 54,40Z" />
+    <!-- collar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,72.5h24v3h-24z" />
+    <!-- base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M39,77h30v5h-30z" />
+</vector>

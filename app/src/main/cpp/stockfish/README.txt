@@ -1,1 +1,1 @@
-Stockfish 17.1 (tag sf_17.1, https://github.com/official-stockfish/Stockfish), GPLv3. Unmodified source; only the src/ tree is vendored.
+Stockfish 19 (tag sf_19, https://github.com/official-stockfish/Stockfish), GPLv3. Unmodified source; only the src/ tree is vendored, without the Makefile and the universal-binary entry points.
