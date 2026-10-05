@@ -36,6 +36,7 @@ chess-core/src/main/kotlin/com/checkmind/chess/
   Fen.kt              parse/format (used by tests and repetition key)
   GameStatus.kt       sealed result types
   Game.kt             history, undo, status, resign
+  PgnImport.kt        parsePgnMoves(text): lenient PGN movetext -> validated moves
 
 app/src/main/kotlin/com/checkmind/app/
   engine/HintEngine.kt        interface + UCI info parser
@@ -62,7 +63,7 @@ Navigation Compose, two routes:
 | Route | Screen | Args |
 |---|---|---|
 | `home` | HomeScreen | none |
-| `game/{color}` | GameScreen | `color` = `white` or `black` |
+| `game/{color}?moves={moves}` | GameScreen | `color` = `white` or `black`; `moves` = optional comma-separated UCI moves already played (from Paste PGN, always `white`) |
 
 `GameViewModel` reads `color` from `SavedStateHandle`. Each navigation to `game/{color}` creates a fresh ViewModel (new back-stack entry), so a new game always starts clean.
 

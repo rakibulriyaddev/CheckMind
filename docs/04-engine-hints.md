@@ -1,9 +1,9 @@
 # 04. Engine hints (Stockfish)
 
-On your turn a **Hints** button asks Stockfish for the best moves in the current position and lists them.
+While the game is on, a **Hints** button asks Stockfish for the best moves in the current position and lists them.
 
 ## Behaviour
-- The **Hints** button is shown when the game is ongoing and it is the chosen color's turn.
+- The **Hints** button is shown whenever the game is ongoing, for either side to move. The score is from the view of the side to move.
 - Tapping it opens a panel below the action row. It shows `Thinking…` for about 2 seconds, then up to three moves, best first. Each row shows the move in SAN and the engine's score for the side to move: `Nf3 · +0.32`, or `M3` / `-M2` for forced mate.
 - Tapping a row plays the move and closes the panel. Tapping **Hints** again, any move, undo, resign or new game also closes it and cancels a running search.
 - If the engine cannot start, the panel says so. The rest of the app keeps working.

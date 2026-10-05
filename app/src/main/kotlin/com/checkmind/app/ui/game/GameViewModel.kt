@@ -27,9 +27,11 @@ import java.time.format.DateTimeFormatter
 class GameViewModel(
     val playerColor: Color,
     private val engine: HintEngine,
+    /** Moves already played from the start position, e.g. from a pasted PGN. */
+    initialMoves: List<Move> = emptyList(),
 ) : ViewModel() {
 
-    private var game = Game()
+    private var game = Game().also { g -> initialMoves.forEach(g::play) }
     private var selected: Int? = null
     private var hintsOpen = false
     private var hintsThinking = false
@@ -38,7 +40,7 @@ class GameViewModel(
     private var hintJob: Job? = null
     private var pending: PendingPromotion? = null
     private var confirm: Confirm? = null
-    private var gameOverDialog = false
+    private var gameOverDialog = game.status !is GameStatus.Ongoing
     private var exportOpen = false
 
     private val _state = MutableStateFlow(buildState())
@@ -230,8 +232,7 @@ class GameViewModel(
 
     // ------------------------------------------------------------------ state
 
-    private fun hintAvailable(): Boolean =
-        game.status is GameStatus.Ongoing && game.position.sideToMove == playerColor
+    private fun hintAvailable(): Boolean = game.status is GameStatus.Ongoing
 
     private fun closeHints() {
         hintJob?.cancel()
@@ -310,8 +311,8 @@ class GameViewModel(
 
         private fun Color.label(): String = if (this == Color.WHITE) "White" else "Black"
 
-        fun factory(playerColor: Color, engine: HintEngine) = viewModelFactory {
-            initializer { GameViewModel(playerColor, engine) }
+        fun factory(playerColor: Color, engine: HintEngine, initialMoves: List<Move> = emptyList()) = viewModelFactory {
+            initializer { GameViewModel(playerColor, engine, initialMoves) }
         }
     }
 }

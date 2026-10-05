@@ -87,10 +87,10 @@ One `Canvas`, size = width, height = width. Square size `s = width / 8`.
 
 ## Hints UI
 
-- `Hints` button is shown when `hintAvailable` is true (game ongoing, my turn).
+- `Hints` button is shown when `hintAvailable` is true (game ongoing, either side to move).
 - Tap **Hints**: the panel opens below the action row. Tapping again closes it.
 - Panel: surface card, title `Stockfish suggests`, then `Thinking…` with a spinner, then one row per move: SAN on the left, score on the right (`+0.32`, `M3`). Whole row is tappable and plays the move. Test tags: `hint_panel`, `hint_thinking`, `hint_failed`, `hint_row_<san>`.
-- The panel closes automatically on any move, undo, resign, new game, or when it is no longer my turn.
+- The panel closes automatically on any move, undo, resign, new game, or when the game ends.
 
 ## Dialogs
 
@@ -107,7 +107,7 @@ Back button on Game goes to Home immediately (no confirmation in v1).
 | Button | Enabled when |
 |---|---|
 | Undo | `moves.isNotEmpty()` and not resigned |
-| Hints | Present only when `hintAvailable` |
+| Hints | Present only when `hintAvailable` (game ongoing) |
 | Resign | Game ongoing |
 | New game | Always |
 

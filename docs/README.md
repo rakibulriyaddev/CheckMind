@@ -1,6 +1,6 @@
 # CheckMind: Design Docs
 
-CheckMind is a two-screen Android chess app (Kotlin, Jetpack Compose). The home screen has **Play as White** and **Play as Black**. The game screen shows a chess.com-style board, with your color at the bottom. Both sides are played by a human on the same device. On your turn a **Hints** button asks a bundled Stockfish for the best moves.
+CheckMind is a two-screen Android chess app (Kotlin, Jetpack Compose). The home screen has **Play as White** and **Play as Black**. The game screen shows a chess.com-style board, with your color at the bottom. Both sides are played by a human on the same device. A **Hints** button asks a bundled Stockfish for the best moves for whichever side is to move. **Paste PGN** on the home screen loads a game and lands on its last position.
 
 This folder is the complete spec. Implementation starts only after these docs are agreed.
 
@@ -20,7 +20,7 @@ This folder is the complete spec. Implementation starts only after these docs ar
 | Topic | Decision |
 |---|---|
 | Opponent | Human on the same device. You move both sides. Board orientation is fixed to your chosen color. |
-| Hints | Stockfish 17.1, full strength, 3 lines, about 2 s. Shown on my turn only. Tapping a row plays the move (see 04). |
+| Hints | Stockfish 17.1, full strength, 3 lines, about 2 s. Shown for either side while the game is on. Tapping a row plays the move (see 04). |
 | Rules | chess.com standard: castling, en passant, promotion, check/checkmate/stalemate, draws (threefold, 50-move, insufficient material). |
 | Controls | Undo (one ply), New game, Resign. |
 | UI toolkit | Jetpack Compose, Material 3, two screens. |
@@ -38,7 +38,7 @@ These were not explicitly answered. Defaults are used unless you object.
 7. Cburnett piece set license (GPL / BSD / GFDL tri-license on Wikimedia Commons) is acceptable for the later upgrade. Verify attribution rules before any public release.
 
 ## Implementation status
-Implemented per these docs: `chess-core` and the `app` (Home, Game, board, drag/tap, promotion, undo/resign/new game, PGN export, Stockfish hints).
+Implemented per these docs: `chess-core` and the `app` (Home, Game, board, drag/tap, promotion, undo/resign/new game, PGN export, PGN import, Stockfish hints).
 Verified by `./gradlew test` (engine perft, SAN, status, PGN, view-model with a fake engine, UCI parsing, geometry) and `./gradlew :app:assembleDebug`.
 Not verified: on-device rendering and gestures (no emulator was available). Run the app once and check the manual list in 06.
 

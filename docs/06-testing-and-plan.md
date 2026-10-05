@@ -35,6 +35,8 @@ Position 5 at depth 4 can be skipped for speed. Kiwipete depth 4 takes a few sec
   - Resign: dialog, result, board locked, undo disabled.
   - New game resets state.
 
+- `parsePgnMoves`: the sample game, round trip of our own export, tags / comments / variations / NAGs, castling, promotion, disambiguation, error messages (illegal, unreadable, ambiguous, after mate, FEN), text after the result.
+- `GameViewModel` with initial moves: lands on the right position, undo walks back, finished game shows the dialog, hints work for either side.
 - `HintEngine` parsing: `info` lines with cp / mate / multipv / promotion; bounds, `info string` and `bestmove` ignored.
 - `GameViewModel` hints use a fake engine: shown on my turn only, lines with scores, `Thinking…` state, row tap plays the move, closes on move / undo / toggle (late answers dropped), engine failure shown, illegal engine move not listed.
 

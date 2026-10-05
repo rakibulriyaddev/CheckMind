@@ -156,17 +156,53 @@ class GameViewModelTest {
     // ------------------------------------------------------------------ hints
 
     @Test
-    fun hintsAreOfferedOnlyOnMyTurn() {
+    fun hintsAreOfferedForEitherSideToMoveWhileTheGameIsOn() {
         val vm = GameViewModel(Color.WHITE, FakeEngine())
         assertTrue(vm.state.value.hintAvailable)
         vm.move("e2", "e4")
-        assertFalse(vm.state.value.hintAvailable) // black to move
+        assertTrue(vm.state.value.hintAvailable) // black to move
         vm.onHintsClick()
-        assertFalse(vm.state.value.hintsOpen)
-        vm.move("e7", "e5")
-        assertTrue(vm.state.value.hintAvailable)
+        assertTrue(vm.state.value.hintsOpen)
 
-        assertFalse(GameViewModel(Color.BLACK, FakeEngine()).state.value.hintAvailable)
+        assertTrue(GameViewModel(Color.BLACK, FakeEngine()).state.value.hintAvailable)
+
+        val mated = GameViewModel(Color.WHITE, FakeEngine(), movesOf("f2f3", "e7e5", "g2g4", "d8h4"))
+        assertFalse(mated.state.value.hintAvailable)
+    }
+
+    // ------------------------------------------------------------------ loaded game
+
+    @Test
+    fun startsFromTheLoadedMoves() {
+        val engine = FakeEngine()
+        val moves = movesOf("e2e4", "e7e5", "g1f3")
+        val vm = GameViewModel(Color.WHITE, engine, moves)
+        val s = vm.state.value
+        assertEquals(Color.BLACK, s.sideToMove)
+        assertEquals(sq("g1") to sq("f3"), s.lastMove)
+        assertEquals(PieceType.KNIGHT, s.board[sq("f3")]?.type)
+        assertTrue(s.canUndo)
+
+        vm.onHintsClick() // hint for Black, who is to move
+        assertEquals(listOf(moves), engine.requests)
+    }
+
+    @Test
+    fun loadedGameCanBeUndoneMoveByMove() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine(), movesOf("e2e4", "e7e5"))
+        vm.onUndo()
+        assertEquals(Color.BLACK, vm.state.value.sideToMove)
+        vm.onUndo()
+        assertEquals(Color.WHITE, vm.state.value.sideToMove)
+        assertFalse(vm.state.value.canUndo)
+        assertEquals(32, vm.state.value.board.count { it != null })
+    }
+
+    @Test
+    fun loadedCheckmateShowsGameOver() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine(), movesOf("f2f3", "e7e5", "g2g4", "d8h4"))
+        assertTrue(vm.state.value.result is GameStatus.Checkmate)
+        assertTrue(vm.state.value.gameOverDialogVisible)
     }
 
     @Test

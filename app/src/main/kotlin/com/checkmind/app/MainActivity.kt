@@ -17,6 +17,7 @@ import com.checkmind.app.ui.game.GameViewModel
 import com.checkmind.app.ui.home.HomeScreen
 import com.checkmind.app.ui.theme.CheckMindTheme
 import com.checkmind.chess.Color
+import com.checkmind.chess.Move
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,15 +32,27 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                 NavHost(navController = nav, startDestination = "home") {
                     composable("home") {
-                        HomeScreen(onPlay = { color -> nav.navigate("game/${color.name.lowercase()}") })
+                        HomeScreen(
+                            onPlay = { color -> nav.navigate("game/${color.name.lowercase()}") },
+                            // White is always at the bottom for a pasted game. The moves travel as UCI, comma separated.
+                            onLoadPgn = { moves -> nav.navigate("game/white?moves=" + moves.joinToString(",") { it.uci() }) },
+                        )
                     }
                     composable(
-                        route = "game/{color}",
-                        arguments = listOf(navArgument("color") { type = NavType.StringType }),
+                        route = "game/{color}?moves={moves}",
+                        arguments = listOf(
+                            navArgument("color") { type = NavType.StringType },
+                            navArgument("moves") {
+                                type = NavType.StringType
+                                defaultValue = ""
+                            },
+                        ),
                     ) { entry ->
                         val color = if (entry.arguments?.getString("color") == "black") Color.BLACK else Color.WHITE
+                        val initialMoves = entry.arguments?.getString("moves").orEmpty()
+                            .split(',').filter { it.isNotEmpty() }.map { Move.fromUci(it) }
                         val vm: GameViewModel = viewModel(
-                            factory = GameViewModel.factory(color, StockfishEngine.get(applicationContext)),
+                            factory = GameViewModel.factory(color, StockfishEngine.get(applicationContext), initialMoves),
                         )
                         GameScreen(viewModel = vm, onBack = { nav.popBackStack() })
                     }

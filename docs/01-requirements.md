@@ -5,6 +5,9 @@
 ### Navigation
 - **FR-1** The app has exactly two screens: **Home** and **Game**.
 - **FR-2** Home shows two buttons: **Play as White** and **Play as Black**.
+- **FR-2a** Home also has a **Paste PGN** button. It opens a dialog with a text box and **Next**. Next loads the pasted game and opens Game with White at the bottom, at the position after the last pasted move. Bad text keeps the dialog open with a message such as `The move 3. Nf6 is not legal in this position.`
+- **FR-2b** The PGN may contain tags, move numbers, `{comments}`, `(variations)`, `$n` marks, `!?` marks, `0-0` castling, promotions with or without `=`, and a result token (`*`, `1-0`, ...). Text after the first result is ignored. Custom start positions (`[FEN]`) are not supported.
+- **FR-2c** A pasted game can be played on and undone move by move. If it ends in checkmate or a draw, the game-over dialog shows.
 - **FR-3** Tapping a button opens Game with that color. System back or the top-bar back arrow returns to Home. The game in progress is discarded.
 
 ### Board and orientation
@@ -29,7 +32,7 @@
 - **FR-18** At game end a dialog shows the result with **New game**, **Home**, and **View board** (dismiss).
 
 ### Hints
-- **FR-19** The **Hints** button appears only when the game is ongoing and it is the chosen color's turn.
+- **FR-19** The **Hints** button appears whenever the game is ongoing, for whichever side is to move.
 - **FR-20** Tapping it shows `Thinking…`, then up to three Stockfish moves, best first. Each row shows the move in SAN and its score for the side to move (`Nf3 · +0.32`, `M3`).
 - **FR-21** Tapping a row plays that move and closes the panel. Any move, undo, resign, new game, or tapping **Hints** again also closes it and cancels the search.
 - **FR-22** If the engine cannot start, the panel says so and the app keeps working.
