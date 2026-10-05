@@ -277,6 +277,14 @@ private fun StatusPill(state: GameUiState) {
                     .testTag("status_text")
                     .semantics { liveRegion = LiveRegionMode.Polite },
             )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = state.evaluation?.label ?: "…",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = CheckMindColors.Primary,
+                modifier = Modifier.testTag("eval_text"),
+            )
         }
     }
 }

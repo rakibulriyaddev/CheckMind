@@ -19,7 +19,7 @@ import com.checkmind.app.ui.theme.CheckMindColors
 import com.checkmind.chess.Color as ChessColor
 
 private val BarWhite = Color(0xFFF2F1EC)
-private val BarBlack = Color(0xFF3A3835)
+private val BarBlack = Color(0xFF101712)
 
 /**
  * Vertical bar beside the board that shows who is ahead: the white part grows with White's advantage,
