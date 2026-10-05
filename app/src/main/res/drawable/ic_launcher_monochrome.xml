@@ -1,20 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Same king for Android 13+ themed icons; the system tints it. -->
+<!-- Same queen for Android 13+ themed icons; the system tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#000000"
-        android:pathData="M52,26h4v14h-4z M47,30h14v4h-14z" />
-    <path
-        android:fillColor="#000000"
-        android:pathData="M54,40C46,40 41,46 41,53C41,58 44,61 47,63L44.5,71H63.5L61,63C64,61 67,58 67,53C67,46 62,40 54,40Z" />
-    <path
-        android:fillColor="#000000"
-        android:pathData="M42,72.5h24v3h-24z" />
-    <path
-        android:fillColor="#000000"
-        android:pathData="M39,77h30v5h-30z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="52"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M31.8,32a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0 M40.8,27.5a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0 M50.8,25.5a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0 M60.8,27.5a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0 M69.8,32a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M42,72L35,34L39.5,48L44,30L49,46L54,28L59,46L64,30L68.5,48L73,34L66,72Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M39,73.5h30v3.5h-30z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M36,78h36v4h-36z" />
+    </group>
 </vector>

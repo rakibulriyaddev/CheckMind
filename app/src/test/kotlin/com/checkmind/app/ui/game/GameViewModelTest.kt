@@ -31,10 +31,14 @@ class GameViewModelTest {
         var failure: Throwable? = null,
         val gate: CompletableDeferred<Unit>? = null,
     ) : HintEngine {
+        /** Hint requests (several lines). */
         val requests = ArrayList<List<Move>>()
 
+        /** Eval-bar requests (a single line). */
+        val evalRequests = ArrayList<List<Move>>()
+
         override suspend fun analyse(moves: List<Move>, lines: Int, moveTimeMs: Int): List<EngineLine> {
-            requests.add(moves)
+            (if (lines == 1) evalRequests else requests).add(moves)
             gate?.await()
             failure?.let { throw it }
             return this.lines
@@ -338,6 +342,57 @@ class GameViewModelTest {
 
         vm.onSquareTap(sq("e7"))
         assertNull(vm.state.value.selected)
+    }
+
+    // ------------------------------------------------------------------ eval bar
+
+    @Test
+    fun evalIsShownFromWhitesView() {
+        val engine = FakeEngine(lines = listOf(EngineLine(Move.fromUci("e2e4"), 40, null)))
+        val vm = GameViewModel(Color.WHITE, engine)
+        assertEquals("+0.40", vm.state.value.evaluation?.label) // White to move: +40 is White's
+        assertTrue(vm.state.value.evaluation!!.whiteShare > 0.5f)
+
+        vm.move("e2", "e4") // Black to move: the engine's +40 is Black's
+        assertEquals("-0.40", vm.state.value.evaluation?.label)
+        assertTrue(vm.state.value.evaluation!!.whiteShare < 0.5f)
+        assertEquals(listOf(emptyList(), movesOf("e2e4")), engine.evalRequests)
+    }
+
+    @Test
+    fun evalOfMateIsFullBar() {
+        val engine = FakeEngine(lines = listOf(EngineLine(Move.fromUci("e2e4"), null, 3)))
+        val vm = GameViewModel(Color.WHITE, engine)
+        assertEquals(Evaluation(1f, "M3"), vm.state.value.evaluation)
+    }
+
+    @Test
+    fun evalIsKeptWhileTheNextOneIsPendingAndReusedOnUndo() {
+        val engine = FakeEngine()
+        val vm = GameViewModel(Color.WHITE, engine)
+        vm.move("e2", "e4")
+        vm.onUndo()
+        assertEquals("+0.35", vm.state.value.evaluation?.label)
+        assertEquals(2, engine.evalRequests.size) // start position was cached
+    }
+
+    @Test
+    fun evalOfFinishedGameComesFromTheResult() {
+        val mated = GameViewModel(Color.WHITE, FakeEngine(), movesOf("f2f3", "e7e5", "g2g4", "d8h4"))
+        assertEquals(Evaluation(0f, "0-1"), mated.state.value.evaluation)
+
+        val resigned = GameViewModel(Color.WHITE, FakeEngine())
+        resigned.onResignClick()
+        resigned.onConfirm()
+        assertEquals(Evaluation(0f, "0-1"), resigned.state.value.evaluation)
+    }
+
+    @Test
+    fun evalFailureLeavesTheGamePlayable() {
+        val vm = GameViewModel(Color.WHITE, FakeEngine(failure = IllegalStateException("no engine")))
+        vm.move("e2", "e4")
+        assertNull(vm.state.value.evaluation)
+        assertEquals(Color.BLACK, vm.state.value.sideToMove)
     }
 
     @Test

@@ -16,7 +16,6 @@ import com.checkmind.chess.toPgn
 import com.checkmind.chess.toSan
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import com.checkmind.chess.toSan
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,9 +41,17 @@ class GameViewModel(
     private var confirm: Confirm? = null
     private var gameOverDialog = game.status !is GameStatus.Ongoing
     private var exportOpen = false
+    private var evaluation: Evaluation? = null
+    private var evalJob: Job? = null
+    private val evalCache = HashMap<String, Evaluation>()
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<GameUiState> = _state.asStateFlow()
+
+    init {
+        updateEvaluation()
+        refresh()
+    }
 
     // ------------------------------------------------------------------ board input
 
@@ -116,6 +123,7 @@ class GameViewModel(
         closeHints()
         pending = null
         gameOverDialog = game.status !is GameStatus.Ongoing
+        updateEvaluation()
         refresh()
     }
 
@@ -127,6 +135,7 @@ class GameViewModel(
             selected = null
             closeHints()
             gameOverDialog = false
+            updateEvaluation()
         }
         refresh()
     }
@@ -191,6 +200,7 @@ class GameViewModel(
                     selected = null
                     closeHints()
                     gameOverDialog = true
+                    updateEvaluation()
                 }
             }
             Confirm.NEW_GAME -> resetGame()
@@ -228,9 +238,42 @@ class GameViewModel(
         confirm = null
         gameOverDialog = false
         exportOpen = false
+        evaluation = null
+        updateEvaluation()
     }
 
     // ------------------------------------------------------------------ state
+
+    /** Scores the current position: finished games are decided by the result, others ask the engine. */
+    private fun updateEvaluation() {
+        evalJob?.cancel()
+        evalJob = null
+        Evaluation.of(game.status)?.let {
+            evaluation = it
+            return
+        }
+        val moves = game.moves.toList()
+        val key = moves.joinToString(" ") { it.uci() }
+        evalCache[key]?.let {
+            evaluation = it
+            return
+        }
+        val sideToMove = game.position.sideToMove
+        // The previous score stays on screen until the new one arrives.
+        evalJob = viewModelScope.launch {
+            try {
+                val line = engine.analyse(moves, 1, EVAL_MOVE_TIME_MS).firstOrNull() ?: return@launch
+                val scored = Evaluation.from(line, sideToMove)
+                evalCache[key] = scored
+                evaluation = scored
+                refresh()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // No score is not worth bothering the player with; the bar keeps its last value.
+            }
+        }
+    }
 
     private fun hintAvailable(): Boolean = game.status is GameStatus.Ongoing
 
@@ -280,6 +323,7 @@ class GameViewModel(
             canUndo = game.moves.isNotEmpty() && status !is GameStatus.Resigned,
             hasMoves = game.moves.isNotEmpty(),
             exportPgn = if (exportOpen) game.toPgn(date = LocalDate.now().format(PGN_DATE)) else null,
+            evaluation = evaluation,
             hintAvailable = hintsAllowed,
             hintsOpen = hintsOpen,
             hintsThinking = hintsThinking,
@@ -295,6 +339,7 @@ class GameViewModel(
     companion object {
         private const val HINT_LINES = 3
         private const val HINT_MOVE_TIME_MS = 2000
+        private const val EVAL_MOVE_TIME_MS = 500
 
         private val PGN_DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 

@@ -127,13 +127,27 @@ fun GameScreen(
         ) {
             StatusPill(state)
 
-            BoardView(
-                state = state,
-                onSquareTap = viewModel::onSquareTap,
-                onDragStart = viewModel::onDragStart,
-                onDrop = viewModel::onDrop,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
-            )
+            Box {
+                BoardView(
+                    state = state,
+                    onSquareTap = viewModel::onSquareTap,
+                    onDragStart = viewModel::onDragStart,
+                    onDrop = viewModel::onDrop,
+                    modifier = Modifier
+                        .padding(start = BarWidth + 8.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                )
+                // Sized to the board's height by the Box, not the other way round.
+                Box(modifier = Modifier.matchParentSize()) {
+                    EvalBar(
+                        evaluation = state.evaluation,
+                        playerColor = state.playerColor,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(3.dp)),
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -154,7 +168,6 @@ fun GameScreen(
                     enabled = state.result is GameStatus.Ongoing,
                     onClick = viewModel::onResignClick,
                 )
-                ActionButton("New game", enabled = true, tag = "btn_new_game", onClick = viewModel::onNewGameClick)
             }
 
             if (state.hintsOpen) {
