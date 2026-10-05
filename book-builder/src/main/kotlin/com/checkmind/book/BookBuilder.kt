@@ -126,6 +126,18 @@ object BookBuilder {
         return book to summary
     }
 
+    /** The moves of [game] from the start position, or null if any move is illegal or ambiguous. */
+    fun movesOf(game: PgnGame): List<Move>? {
+        var pos = Position.START
+        val out = ArrayList<Move>(game.moves.size)
+        for (token in game.moves) {
+            val move = findMove(pos, token) ?: return null
+            out.add(move)
+            pos = pos.play(move)
+        }
+        return out
+    }
+
     private fun normalize(token: String): String {
         var t = token.trimEnd('+', '#', '!', '?')
         PROMOTION_WITHOUT_EQUALS.matchEntire(t)?.let {
@@ -135,7 +147,7 @@ object BookBuilder {
     }
 
     /** Finds the single legal move whose SAN equals [token] (check marks and annotations ignored). */
-    private fun findMove(pos: Position, token: String): Move? {
+    fun findMove(pos: Position, token: String): Move? {
         val wanted = normalize(token)
         val legal = pos.legalMoves()
         // Narrow down by destination square and piece first, so SAN is built only for a few moves.

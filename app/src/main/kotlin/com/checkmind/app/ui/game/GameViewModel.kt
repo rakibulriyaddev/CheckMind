@@ -13,11 +13,14 @@ import com.checkmind.chess.PieceType
 import com.checkmind.chess.Squares
 import com.checkmind.chess.book.BookEdge
 import com.checkmind.chess.book.OpeningBook
+import com.checkmind.chess.toPgn
 import com.checkmind.chess.toSan
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class GameViewModel(
     val playerColor: Color,
@@ -31,6 +34,7 @@ class GameViewModel(
     private var pending: PendingPromotion? = null
     private var confirm: Confirm? = null
     private var gameOverDialog = false
+    private var exportOpen = false
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<GameUiState> = _state.asStateFlow()
@@ -183,6 +187,17 @@ class GameViewModel(
         refresh()
     }
 
+    fun onExportClick() {
+        if (game.moves.isEmpty()) return
+        exportOpen = true
+        refresh()
+    }
+
+    fun onExportDismiss() {
+        exportOpen = false
+        refresh()
+    }
+
     fun onGameOverDismiss() {
         gameOverDialog = false
         refresh()
@@ -195,6 +210,7 @@ class GameViewModel(
         pending = null
         confirm = null
         gameOverDialog = false
+        exportOpen = false
     }
 
     // ------------------------------------------------------------------ state
@@ -241,6 +257,8 @@ class GameViewModel(
             statusText = statusText(status, pos.isInCheck(), pos.sideToMove),
             result = status,
             canUndo = game.moves.isNotEmpty() && status !is GameStatus.Resigned,
+            hasMoves = game.moves.isNotEmpty(),
+            exportPgn = if (exportOpen) game.toPgn(date = LocalDate.now().format(PGN_DATE)) else null,
             hintAvailable = edges != null,
             hintsOpen = hintsOpen,
             hints = hintRows,
@@ -252,6 +270,8 @@ class GameViewModel(
     }
 
     companion object {
+        private val PGN_DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+
         fun statusText(status: GameStatus, inCheck: Boolean, sideToMove: Color): String = when (status) {
             GameStatus.Ongoing ->
                 (if (inCheck) "Check · " else "") + "${sideToMove.label()} to move"

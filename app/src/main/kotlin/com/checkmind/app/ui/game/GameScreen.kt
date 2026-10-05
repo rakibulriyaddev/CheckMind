@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -52,10 +54,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as UiColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -95,6 +100,13 @@ fun GameScreen(
                     IconButton(onClick = requestBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    TextButton(
+                        onClick = viewModel::onExportClick,
+                        enabled = state.hasMoves,
+                        modifier = Modifier.testTag("btn_export"),
+                    ) { Text("Export") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = CheckMindColors.AppBackground,
@@ -179,6 +191,10 @@ fun GameScreen(
             onDismiss = viewModel::onDismissConfirm,
         )
         null -> {}
+    }
+
+    state.exportPgn?.let { pgn ->
+        ExportDialog(pgn = pgn, onDismiss = viewModel::onExportDismiss)
     }
 
     if (confirmLeave) {
@@ -306,6 +322,46 @@ private fun ConfirmDialog(
             ) { Text(confirmLabel) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Shows the game as PGN (tags and numbered moves) with a button that copies it. */
+@Composable
+private fun ExportDialog(pgn: String, onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Export game") },
+        text = {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, CheckMindColors.SurfaceRaised),
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = pgn,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier
+                            .heightIn(max = 280.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp)
+                            .testTag("export_text"),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    clipboard.setText(AnnotatedString(pgn))
+                    copied = true
+                },
+                modifier = Modifier.testTag("btn_copy"),
+            ) { Text(if (copied) "Copied" else "Copy") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }
 

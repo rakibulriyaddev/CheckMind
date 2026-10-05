@@ -245,6 +245,43 @@ class GameViewModelTest {
         assertFalse(vm.state.value.hintAvailable)
     }
 
+    // ------------------------------------------------------------------ export
+
+    @Test
+    fun exportShowsPgnOfCurrentGame() {
+        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        vm.onExportClick() // nothing to export yet
+        assertNull(vm.state.value.exportPgn)
+        assertFalse(vm.state.value.hasMoves)
+
+        vm.move("e2", "e4")
+        vm.move("e7", "e5")
+        assertTrue(vm.state.value.hasMoves)
+        vm.onExportClick()
+        val pgn = vm.state.value.exportPgn!!
+        assertTrue(pgn.contains("[Result \"*\"]"))
+        assertTrue(pgn.endsWith("1. e4 e5 *"))
+
+        vm.onExportDismiss()
+        assertNull(vm.state.value.exportPgn)
+    }
+
+    @Test
+    fun exportStillWorksAfterResignAndNewGameClosesIt() {
+        val vm = GameViewModel(Color.WHITE, FakeBook(null))
+        vm.move("e2", "e4")
+        vm.onResignClick()
+        vm.onConfirm()
+        assertFalse(vm.state.value.canUndo)
+        assertTrue(vm.state.value.hasMoves)
+        vm.onExportClick()
+        assertTrue(vm.state.value.exportPgn!!.endsWith("1. e4 0-1"))
+
+        vm.onNewGameConfirmedFromDialog()
+        assertNull(vm.state.value.exportPgn)
+        assertFalse(vm.state.value.hasMoves)
+    }
+
     // ------------------------------------------------------------------ controls
 
     @Test

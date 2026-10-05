@@ -26,6 +26,10 @@ data class GameUiState(
     val statusText: String = "",
     val result: GameStatus = GameStatus.Ongoing,
     val canUndo: Boolean = false,
+    /** True once any move was played, also after resignation (when undo is off). */
+    val hasMoves: Boolean = false,
+    /** PGN text while the export dialog is open, otherwise null. */
+    val exportPgn: String? = null,
     val hintAvailable: Boolean = false,
     val hintsOpen: Boolean = false,
     val hints: List<HintRow> = emptyList(),

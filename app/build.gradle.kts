@@ -109,4 +109,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(project(":book-builder")) // real-data hint check
+}
+
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "3g" // HintsAgainstRealGamesTest parses the 91 MB PGN
 }
